@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install -e ../birdhaus_data_pipeline || pip install birdhaus-data-pipeline
+          pip install git+https://github.com/birdhaus-to-does-witchcraft/bh_pipeline.git
 
       - name: Generate dashboard
         env:
