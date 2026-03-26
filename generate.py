@@ -142,12 +142,31 @@ def build_html(events, fetched_at):
     rows_html = ""
     for ev in events:
         cap_cls = capacity_class(ev.get("Capacity", ""))
+        event_url = str(ev.get("EventUrl", "")).strip()
+        link_icons = ""
+        if event_url:
+            escaped_url = escape(event_url, quote=True)
+            link_icons = (
+                f'<span class="event-links">'
+                f'<a href="{escaped_url}" target="_blank" rel="noopener" class="event-icon" title="Open event page">'
+                f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                f'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+                f'<polyline points="15 3 21 3 21 9"/>'
+                f'<line x1="10" y1="14" x2="21" y2="3"/>'
+                f'</svg></a>'
+                f'<button class="event-icon" onclick="navigator.clipboard.writeText(\'{escaped_url}\');this.classList.add(\'copied\');setTimeout(()=>this.classList.remove(\'copied\'),1500)" title="Copy link">'
+                f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                f'<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>'
+                f'<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+                f'</svg></button>'
+                f'</span>'
+            )
         rows_html += f"""<tr>
-<td class="cell cell-event">{escape(str(ev['Event']))}</td>
-<td class="cell cell-meta">{escape(str(ev['DateFmt']))}</td>
-<td class="cell cell-meta">{escape(str(ev['TimeFmt']))}</td>
-<td class="cell">{escape(str(ev['Tickets']))}</td>
-<td class="cell {cap_cls}">{escape(str(ev['Capacity']))}</td>
+<td class="cell cell-event" data-label="Event">{escape(str(ev['Event']))}{link_icons}</td>
+<td class="cell cell-meta" data-label="Date">{escape(str(ev['DateFmt']))}<span class="time-inline"> &middot; {escape(str(ev['TimeFmt']))}</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">{escape(str(ev['TimeFmt']))}</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">{escape(str(ev['Tickets']))}</td>
+<td class="cell {cap_cls}" data-label="Capacity">{escape(str(ev['Capacity']))}</td>
 </tr>"""
 
     # Build calendar
@@ -412,6 +431,121 @@ def build_html(events, fetched_at):
     font-weight: 400;
     font-size: 0.7rem;
     opacity: 0.8;
+  }}
+
+  /* ── Event link icons ── */
+
+  .event-links {{
+    display: inline-flex;
+    gap: 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }}
+
+  .event-icon {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    text-decoration: none;
+    transition: color 0.15s;
+  }}
+
+  .event-icon:hover {{ color: var(--text); }}
+
+  .event-icon.copied {{ color: var(--cap-ok); }}
+
+  .time-inline {{ display: none; }}
+
+  /* ── Mobile: tablet / large phone ── */
+
+  @media (max-width: 768px) {{
+    body {{ padding: 1rem 0.75rem; }}
+
+    .page-title {{ font-size: 1.5rem; }}
+    .page-sub {{ font-size: 0.9rem; margin-bottom: 1.2rem; }}
+
+    .bh-table {{ font-size: 0.85rem; }}
+
+    .bh-table th {{ padding: 8px 10px; font-size: 0.7rem; }}
+    .cell {{ padding: 8px 10px; }}
+
+    .cell-event {{ max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+
+    /* Hide separate Time column, show inline */
+    .bh-table th:nth-child(3),
+    .cell-time {{ display: none; }}
+    .time-inline {{ display: inline; }}
+
+    /* Hide Tickets Sold column */
+    .bh-table th:nth-child(4),
+    .cell-tickets {{ display: none; }}
+
+    /* Calendar adjustments */
+    .cal-cell {{ height: 60px; padding: 4px; }}
+    .cal-event {{ font-size: 0.65rem; }}
+    .cal-event-time {{ font-size: 0.6rem; }}
+    .cal-day-num {{ font-size: 0.75rem; }}
+  }}
+
+  /* ── Mobile: small phone ── */
+
+  @media (max-width: 480px) {{
+    body {{ padding: 0.75rem 0.5rem; }}
+
+    .page-title {{ font-size: 1.3rem; }}
+
+    /* Card layout */
+    .bh-table thead {{ display: none; }}
+    .bh-table tbody tr {{
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      padding: 10px 12px;
+    }}
+    .bh-table tbody tr:hover .cell {{ background: none; }}
+
+    .cell {{
+      display: block;
+      border-bottom: none;
+      padding: 3px 0;
+    }}
+    .cell::before {{
+      content: attr(data-label);
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-right: 8px;
+      min-width: 70px;
+    }}
+    .cell-event {{
+      max-width: none;
+      white-space: normal;
+      font-size: 0.95rem;
+      padding-bottom: 4px;
+    }}
+    .cell-event::before {{ display: none; }}
+
+    /* Keep Time and Tickets hidden in card view */
+    .cell-time {{ display: none; }}
+    .time-inline {{ display: inline; }}
+    .cell-tickets {{ display: none; }}
+
+    /* Calendar small phone */
+    .cal-cell {{ height: 45px; padding: 2px; }}
+    .cal-event {{ font-size: 0.6rem; padding: 2px 3px; }}
+    .cal-event-time {{ display: none; }}
+    .cal-dayname {{ font-size: 0.65rem; padding: 4px 2px; }}
+    .cal-month-title {{ font-size: 1rem; }}
   }}
 
   /* ── Footer ── */

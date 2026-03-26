@@ -152,6 +152,7 @@ def fetch_upcoming_events(days_ahead: int = 60) -> pd.DataFrame:
                 "Category": event.get("primary_category", ""),
                 "Tickets": tickets_str,
                 "Capacity": capacity_str,
+                "EventUrl": event.get("event_page_url", ""),
             })
 
         df = pd.DataFrame(rows)
