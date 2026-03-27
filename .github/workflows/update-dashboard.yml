@@ -2,7 +2,7 @@ name: Update Dashboard
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Every 2 hours
+    - cron: '*/30 * * * *'  # Schedule configuration
   workflow_dispatch:  # Manual trigger
 
 permissions:
