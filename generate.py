@@ -12,9 +12,10 @@ import json
 import os
 import sys
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from html import escape
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from data_fetcher import fetch_upcoming_events
 
@@ -82,7 +83,7 @@ def fetch_and_cache():
     df = fetch_upcoming_events(days_ahead=60)
 
     payload = {
-        "fetched_at": datetime.now().isoformat(),
+        "fetched_at": datetime.now(timezone.utc).astimezone(ZoneInfo("America/New_York")).isoformat(),
         "events": df.to_dict(orient="records") if not df.empty else [],
     }
 
@@ -482,10 +483,6 @@ def build_html(events, fetched_at):
     .cell-time {{ display: none; }}
     .time-inline {{ display: inline; }}
 
-    /* Hide Tickets Sold column */
-    .bh-table th:nth-child(4),
-    .cell-tickets {{ display: none; }}
-
     /* Calendar adjustments */
     .cal-cell {{ height: 60px; padding: 4px; }}
     .cal-event {{ font-size: 0.65rem; }}
@@ -535,10 +532,9 @@ def build_html(events, fetched_at):
     }}
     .cell-event::before {{ display: none; }}
 
-    /* Keep Time and Tickets hidden in card view */
+    /* Keep Time hidden in card view (shown inline with date) */
     .cell-time {{ display: none; }}
     .time-inline {{ display: inline; }}
-    .cell-tickets {{ display: none; }}
 
     /* Calendar small phone */
     .cal-cell {{ height: 45px; padding: 2px; }}
