@@ -28,6 +28,7 @@ jobs:
           WIX_API_KEY: ${{ secrets.WIX_API_KEY }}
           WIX_SITE_ID: ${{ secrets.WIX_SITE_ID }}
           WIX_ACCOUNT_ID: ${{ secrets.WIX_ACCOUNT_ID }}
+          GUEST_LIST_PASSWORD: ${{ secrets.GUEST_LIST_PASSWORD }}
         run: python generate.py
 
       - name: Commit and push if changed

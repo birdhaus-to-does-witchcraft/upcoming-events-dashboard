@@ -7,7 +7,9 @@ page with table + calendar views, and writes it to docs/index.html.
 Run manually:  python generate.py
 """
 
+import base64
 import calendar as cal_mod
+import hashlib
 import json
 import os
 import sys
@@ -17,7 +19,38 @@ from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 from data_fetcher import fetch_upcoming_events
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  GUEST LIST PASSWORD CONFIG                                     ║
+# ║  Change these values to set the passwords for downloading       ║
+# ║  guest lists. The env var GUEST_LIST_PASSWORD overrides          ║
+# ║  GLOBAL_PASSWORD when set (useful for CI / GitHub Secrets).     ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+# Global password: grants access to ALL event guest lists (core team)
+GLOBAL_PASSWORD = "changeme2"
+
+# Per-event passwords: grants access to ONE specific event's guest list.
+# Keys must match the event title exactly as shown in the dashboard.
+EVENT_PASSWORDS = {
+    # "Board at Birdhaus": "boardnight2026",
+}
+
+def _get_global_password():
+    return os.getenv("GUEST_LIST_PASSWORD", GLOBAL_PASSWORD)
+
+
+def encrypt_for_download(plaintext: str, password: str) -> str:
+    """AES-256-GCM encrypt plaintext with a password. Returns base64(salt+nonce+ciphertext)."""
+    salt = os.urandom(16)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100_000, dklen=32)
+    nonce = os.urandom(12)
+    ciphertext = AESGCM(key).encrypt(nonce, plaintext.encode(), None)
+    return base64.b64encode(salt + nonce + ciphertext).decode()
+
 
 DOCS_DIR = Path(__file__).parent / "docs"
 OUTPUT_FILE = DOCS_DIR / "index.html"
@@ -82,14 +115,15 @@ def fetch_and_cache():
 
     df = fetch_upcoming_events(days_ahead=60)
 
-    payload = {
-        "fetched_at": datetime.now(timezone.utc).astimezone(ZoneInfo("America/New_York")).isoformat(),
-        "events": df.to_dict(orient="records") if not df.empty else [],
-    }
+    all_events = df.to_dict(orient="records") if not df.empty else []
+    fetched_at = datetime.now(timezone.utc).astimezone(ZoneInfo("America/New_York")).isoformat()
 
-    DATA_FILE.write_text(json.dumps(payload, default=str), encoding="utf-8")
-    print(f"[{datetime.now():%H:%M:%S}] Saved {len(payload['events'])} events to {DATA_FILE}")
-    return payload
+    cache_events = [{k: v for k, v in ev.items() if k != "Guests"} for ev in all_events]
+    cache_payload = {"fetched_at": fetched_at, "events": cache_events}
+    DATA_FILE.write_text(json.dumps(cache_payload, default=str), encoding="utf-8")
+    print(f"[{datetime.now():%H:%M:%S}] Saved {len(cache_events)} events to {DATA_FILE}")
+
+    return {"fetched_at": fetched_at, "events": all_events}
 
 
 def format_date(day, raw_date):
@@ -140,15 +174,40 @@ def build_html(events, fetched_at):
         ev["TimeFmt"] = to_12h(ev.get("Time", ""))
 
     # Build table rows
+    global_pw = _get_global_password()
     rows_html = ""
     for ev in events:
         cap_cls = capacity_class(ev.get("Capacity", ""))
         event_url = str(ev.get("EventUrl", "")).strip()
-        link_icons = ""
+
+        guest_list = ev.get("Guests", [])
+        if not isinstance(guest_list, list):
+            guest_list = []
+        guest_json = json.dumps(guest_list)
+        enc_global = encrypt_for_download(guest_json, global_pw)
+
+        event_title = str(ev.get("Event", ""))
+        event_pw = EVENT_PASSWORDS.get(event_title)
+        enc_event = encrypt_for_download(guest_json, event_pw) if event_pw else ""
+
+        data_attrs = f' data-guests-global="{enc_global}"'
+        if enc_event:
+            data_attrs += f' data-guests-event="{enc_event}"'
+        data_attrs += f' data-event-name="{escape(event_title, quote=True)}"'
+
+        download_btn = (
+            f'<button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list">'
+            f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            f'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
+            f'<polyline points="7 10 12 15 17 10"/>'
+            f'<line x1="12" y1="15" x2="12" y2="3"/>'
+            f'</svg></button>'
+        )
+
+        url_icons = ""
         if event_url:
             escaped_url = escape(event_url, quote=True)
-            link_icons = (
-                f'<span class="event-links">'
+            url_icons = (
                 f'<a href="{escaped_url}" target="_blank" rel="noopener" class="event-icon" title="Open event page">'
                 f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
                 f'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
@@ -160,10 +219,11 @@ def build_html(events, fetched_at):
                 f'<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>'
                 f'<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
                 f'</svg></button>'
-                f'</span>'
             )
-        rows_html += f"""<tr>
-<td class="cell cell-event" data-label="Event">{escape(str(ev['Event']))}{link_icons}</td>
+
+        link_icons = f'<span class="event-links">{url_icons}{download_btn}</span>'
+        rows_html += f"""<tr{data_attrs}>
+<td class="cell cell-event" data-label="Event">{escape(event_title)}{link_icons}</td>
 <td class="cell cell-meta" data-label="Date">{escape(str(ev['DateFmt']))}<span class="time-inline"> &middot; {escape(str(ev['TimeFmt']))}</span></td>
 <td class="cell cell-meta cell-time" data-label="Time">{escape(str(ev['TimeFmt']))}</td>
 <td class="cell cell-tickets" data-label="Tickets Sold">{escape(str(ev['Tickets']))}</td>
@@ -553,6 +613,90 @@ def build_html(events, fetched_at):
     padding-top: 1rem;
     border-top: 1px solid var(--border);
   }}
+
+  /* ── Password modal ── */
+
+  .pw-overlay {{
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }}
+  .pw-overlay.active {{ display: flex; }}
+
+  .pw-modal {{
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.8rem;
+    width: 340px;
+    max-width: 90vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  }}
+
+  .pw-modal h3 {{
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }}
+
+  .pw-modal .pw-event-name {{
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    margin-bottom: 1rem;
+  }}
+
+  .pw-modal input {{
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }}
+  .pw-modal input:focus {{ border-color: var(--cap-ok); }}
+  .pw-modal input.pw-error {{ border-color: var(--cap-full); }}
+
+  .pw-modal .pw-err-msg {{
+    font-size: 0.8rem;
+    color: var(--cap-full);
+    margin-top: 0.4rem;
+    min-height: 1.2em;
+  }}
+
+  .pw-modal .pw-actions {{
+    display: flex;
+    gap: 8px;
+    margin-top: 1rem;
+    justify-content: flex-end;
+  }}
+
+  .pw-modal button {{
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-header);
+    color: var(--text);
+    transition: background 0.15s;
+  }}
+  .pw-modal button:hover {{ background: var(--hover); }}
+
+  .pw-modal .pw-submit {{
+    background: var(--cap-ok);
+    color: #fff;
+    border-color: var(--cap-ok);
+  }}
+  .pw-modal .pw-submit:hover {{ opacity: 0.9; background: var(--cap-ok); }}
 </style>
 </head>
 <body>
@@ -579,6 +723,116 @@ def build_html(events, fetched_at):
 </div>
 
 <p class="footer-text">Data from {fetched_display}</p>
+
+<div class="pw-overlay" id="pwOverlay">
+  <div class="pw-modal">
+    <h3>Download Guest List</h3>
+    <div class="pw-event-name" id="pwEventName"></div>
+    <form id="pwForm" onsubmit="return handlePwSubmit(event)">
+      <input type="password" id="pwInput" placeholder="Enter password" autocomplete="off" />
+      <div class="pw-err-msg" id="pwErr"></div>
+      <div class="pw-actions">
+        <button type="button" onclick="closePwModal()">Cancel</button>
+        <button type="submit" class="pw-submit">Download</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){{
+  var activeRow=null;
+
+  function showModal(){{
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwInput').classList.remove('pw-error');
+    document.getElementById('pwErr').textContent='';
+    document.getElementById('pwOverlay').classList.add('active');
+    setTimeout(function(){{document.getElementById('pwInput').focus();}},50);
+  }}
+
+  window.promptGuestDownload=function(btn){{
+    activeRow=btn.closest('tr');
+    var name=activeRow.getAttribute('data-event-name')||'Event';
+    document.getElementById('pwEventName').textContent=name;
+    var saved=sessionStorage.getItem('_gl_pw');
+    if(saved){{tryDecryptAndDownload(saved,true);return;}}
+    showModal();
+  }};
+
+  window.closePwModal=function(){{
+    document.getElementById('pwOverlay').classList.remove('active');
+    activeRow=null;
+  }};
+
+  window.handlePwSubmit=function(e){{
+    e.preventDefault();
+    var pw=document.getElementById('pwInput').value;
+    if(!pw)return false;
+    tryDecryptAndDownload(pw,false);
+    return false;
+  }};
+
+  async function deriveKey(password,salt){{
+    var enc=new TextEncoder();
+    var km=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']);
+    return crypto.subtle.deriveKey({{name:'PBKDF2',salt:salt,iterations:100000,hash:'SHA-256'}},km,{{name:'AES-GCM',length:256}},false,['decrypt']);
+  }}
+
+  async function decryptBlob(b64,password){{
+    var raw=Uint8Array.from(atob(b64),function(c){{return c.charCodeAt(0);}});
+    var salt=raw.slice(0,16);
+    var nonce=raw.slice(16,28);
+    var ct=raw.slice(28);
+    var key=await deriveKey(password,salt);
+    var dec=await crypto.subtle.decrypt({{name:'AES-GCM',iv:nonce}},key,ct);
+    return new TextDecoder().decode(dec);
+  }}
+
+  async function tryDecryptAndDownload(pw,fromCache){{
+    if(!activeRow)return;
+    var globalBlob=activeRow.getAttribute('data-guests-global');
+    var eventBlob=activeRow.getAttribute('data-guests-event');
+    var eventName=activeRow.getAttribute('data-event-name')||'guests';
+    var decrypted=null;
+    if(globalBlob){{try{{decrypted=await decryptBlob(globalBlob,pw);}}catch(_){{}}}}
+    if(!decrypted&&eventBlob){{try{{decrypted=await decryptBlob(eventBlob,pw);}}catch(_){{}}}}
+    if(decrypted){{
+      sessionStorage.setItem('_gl_pw',pw);
+      downloadCsv(decrypted,eventName);
+      closePwModal();
+    }}else if(fromCache){{
+      sessionStorage.removeItem('_gl_pw');
+      showModal();
+    }}else{{
+      document.getElementById('pwInput').classList.add('pw-error');
+      document.getElementById('pwErr').textContent='Incorrect password';
+    }}
+  }}
+
+  function downloadCsv(jsonStr,eventName){{
+    var guests=JSON.parse(jsonStr);
+    var lines=['Name,Ticket Type'];
+    guests.forEach(function(g){{
+      var n=(g.name||'').replace(/"/g,'""');
+      var t=(g.ticket_type||'').replace(/"/g,'""');
+      lines.push('"'+n+'","'+t+'"');
+    }});
+    var csv=lines.join('\\r\\n');
+    var blob=new Blob([csv],{{type:'text/csv;charset=utf-8;'}});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=eventName.replace(/[^a-zA-Z0-9 _-]/g,'').replace(/ +/g,'_')+'_guests.csv';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){{document.body.removeChild(a);URL.revokeObjectURL(url);}},100);
+  }}
+
+  document.getElementById('pwOverlay').addEventListener('click',function(e){{
+    if(e.target===this)closePwModal();
+  }});
+}})();
+</script>
 
 </body>
 </html>"""

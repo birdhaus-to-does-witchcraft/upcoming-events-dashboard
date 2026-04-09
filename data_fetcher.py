@@ -120,13 +120,32 @@ def fetch_upcoming_events(days_ahead: int = 60) -> pd.DataFrame:
             try:
                 guests = guests_api.get_all_guests_for_event(event_id)
                 definitions = fetch_ticket_definitions_v3(client, event_id)
-                # Count only TICKET_HOLDER guests (matches Wix dashboard count)
-                holder_count = sum(
-                    1 for g in guests if g.get("guestType") == "TICKET_HOLDER"
-                )
-                return event_id, holder_count, definitions
+
+                defn_names = {
+                    d.get("id", ""): d.get("name", "Ticket")
+                    for d in definitions
+                }
+
+                holders = [g for g in guests if g.get("guestType") == "TICKET_HOLDER"]
+                holder_count = len(holders)
+
+                guest_list = []
+                for g in holders:
+                    details = g.get("guestDetails", {})
+                    first = details.get("firstName", "")
+                    last = details.get("lastName", "")
+                    name = f"{first} {last}".strip() or "Guest"
+                    ticket_type = defn_names.get(
+                        g.get("ticketDefinitionId", ""), "Ticket"
+                    )
+                    guest_list.append({
+                        "name": name,
+                        "ticket_type": ticket_type,
+                    })
+
+                return event_id, holder_count, definitions, guest_list
             except Exception:
-                return event_id, 0, []
+                return event_id, 0, [], []
 
         event_data = {}
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -135,13 +154,15 @@ def fetch_upcoming_events(days_ahead: int = 60) -> pd.DataFrame:
                 for e in filtered
             }
             for future in as_completed(futures):
-                event_id, holder_count, definitions = future.result()
-                event_data[event_id] = (holder_count, definitions)
+                event_id, holder_count, definitions, guest_list = future.result()
+                event_data[event_id] = (holder_count, definitions, guest_list)
 
         # Build rows
         rows = []
         for event in filtered:
-            holder_count, definitions = event_data.get(event["event_id"], (0, []))
+            holder_count, definitions, guest_list = event_data.get(
+                event["event_id"], (0, [], [])
+            )
             tickets_str, capacity_str = format_ticket_info(definitions, holder_count)
 
             rows.append({
@@ -153,6 +174,7 @@ def fetch_upcoming_events(days_ahead: int = 60) -> pd.DataFrame:
                 "Tickets": tickets_str,
                 "Capacity": capacity_str,
                 "EventUrl": event.get("event_page_url", ""),
+                "Guests": guest_list,
             })
 
         df = pd.DataFrame(rows)
