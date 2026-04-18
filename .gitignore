@@ -4,3 +4,4 @@ venv/
 .venv-wsl/
 *.log
 .claude/
+./docs/index.html

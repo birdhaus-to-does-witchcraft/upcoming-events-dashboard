@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
 from wix_api.client import WixAPIClient
+from wix_api.contacts import ContactsAPI
 from wix_api.events import EventsAPI
 from wix_api.guests import GuestsAPI
 from transformers.events import EventsTransformer
@@ -115,29 +116,50 @@ def fetch_upcoming_events(days_ahead: int = 60) -> pd.DataFrame:
 
         # Fetch guests + V3 ticket definitions per event (parallel)
         guests_api = GuestsAPI(client)
+        contacts_api = ContactsAPI(client)
+
+        def _contact_name(contact_id):
+            """Fetch a contact's full name from the Contacts API."""
+            try:
+                resp = contacts_api.get_contact(contact_id)
+                info = resp.get("contact", resp).get("info", {})
+                n = info.get("name", {})
+                full = f"{n.get('first', '')} {n.get('last', '')}".strip()
+                return full or None
+            except Exception:
+                return None
 
         def fetch_event_data(event_id):
             try:
                 guests = guests_api.get_all_guests_for_event(event_id)
                 definitions = fetch_ticket_definitions_v3(client, event_id)
 
-                defn_names = {
-                    d.get("id", ""): d.get("name", "Ticket")
-                    for d in definitions
-                }
-
                 holders = [g for g in guests if g.get("guestType") == "TICKET_HOLDER"]
                 holder_count = len(holders)
 
+                # Batch-resolve contact names for all unique contactIds
+                unique_cids = {g.get("contactId") for g in holders if g.get("contactId")}
+                contact_names = {}
+                for cid in unique_cids:
+                    resolved = _contact_name(cid)
+                    if resolved:
+                        contact_names[cid] = resolved
+
                 guest_list = []
                 for g in holders:
+                    # Name: try guestDetails.name first, fall back to Contacts API
                     details = g.get("guestDetails", {})
-                    first = details.get("firstName", "")
-                    last = details.get("lastName", "")
-                    name = f"{first} {last}".strip() or "Guest"
-                    ticket_type = defn_names.get(
-                        g.get("ticketDefinitionId", ""), "Ticket"
-                    )
+                    name_obj = details.get("name", {})
+                    first = name_obj.get("first", "")
+                    last = name_obj.get("last", "")
+                    name = f"{first} {last}".strip()
+                    if not name:
+                        name = contact_names.get(g.get("contactId", ""), "Guest")
+
+                    # Ticket type: comes from the tickets array on the guest
+                    tickets = g.get("tickets", [])
+                    ticket_type = tickets[0].get("name", "Ticket") if tickets else "Ticket"
+
                     guest_list.append({
                         "name": name,
                         "ticket_type": ticket_type,

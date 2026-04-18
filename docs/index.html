@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Birdhaus Upcoming Events</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-header: #f5f5f5;
+    --text: #1a1a1a;
+    --text-soft: #555;
+    --text-muted: #999;
+    --border: #e8e8e8;
+    --hover: #fafafa;
+    --cap-ok: #2e8b57;
+    --cap-high: #d4880f;
+    --cap-full: #d9534f;
+    --cap-muted: #888;
+    --cal-event-bg: #e3f2fd;
+    --cal-event-text: #1565c0;
+    --cal-today-bg: #fff8e1;
+    --cal-empty: transparent;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --bg-header: #242424;
+      --text: #e8e4e0;
+      --text-soft: #bbb5ae;
+      --text-muted: #777;
+      --border: #333;
+      --hover: #222;
+      --cap-ok: #5cb85c;
+      --cap-high: #e6a23c;
+      --cap-full: #e74c3c;
+      --cap-muted: #777;
+      --cal-event-bg: #1e3a5f;
+      --cal-event-text: #90caf9;
+      --cal-today-bg: #3e3520;
+      --cal-empty: transparent;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text);
+    padding: 2rem 1.5rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+
+  .page-sub {
+    font-size: 1.05rem;
+    color: var(--text-soft);
+    margin-bottom: 1.8rem;
+  }
+
+  /* ── Table ── */
+
+  .bh-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1.05rem;
+  }
+
+  .bh-table th {
+    background: var(--bg-header);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 10px 16px;
+    border-bottom: 2px solid var(--border);
+    text-align: left;
+  }
+
+  .cell {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-soft);
+    vertical-align: middle;
+  }
+
+  .cell-event { font-weight: 600; color: var(--text); }
+  .cell-meta { color: var(--text-soft); }
+
+  .cap-ok { color: var(--cap-ok); font-weight: 500; }
+  .cap-high { color: var(--cap-high); font-weight: 500; }
+  .cap-full { color: var(--cap-full); font-weight: 600; }
+  .cap-unlimited { color: var(--cap-muted); }
+
+  .bh-table tbody tr:hover .cell { background: var(--hover); }
+  .bh-table tbody tr:last-child .cell { border-bottom: none; }
+
+  /* ── Calendar ── */
+
+  .cal-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 2px solid var(--border);
+  }
+
+  .cal-section-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 1.5rem;
+  }
+
+  .cal-month { margin-bottom: 2.5rem; }
+
+  .cal-month-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.6rem;
+  }
+
+  .cal-grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .cal-dayname {
+    padding: 8px 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cal-cell {
+    height: 90px;
+    vertical-align: top;
+    padding: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .cal-empty {
+    background: var(--cal-empty);
+    border-color: transparent;
+  }
+
+  .cal-today { background: var(--cal-today-bg); }
+
+  .cal-day-num {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .cal-today .cal-day-num { font-weight: 700; color: var(--text); }
+
+  .cal-event {
+    background: var(--cal-event-bg);
+    color: var(--cal-event-text);
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 3px;
+    line-height: 1.3;
+    overflow: hidden;
+  }
+
+  .cal-event-time {
+    font-weight: 400;
+    font-size: 0.7rem;
+    opacity: 0.8;
+  }
+
+  /* ── Event link icons ── */
+
+  .event-links {
+    display: inline-flex;
+    gap: 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .event-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .event-icon:hover { color: var(--text); }
+
+  .event-icon.copied { color: var(--cap-ok); }
+
+  .time-inline { display: none; }
+
+  /* ── Mobile: tablet / large phone ── */
+
+  @media (max-width: 768px) {
+    body { padding: 1rem 0.75rem; }
+
+    .page-title { font-size: 1.5rem; }
+    .page-sub { font-size: 0.9rem; margin-bottom: 1.2rem; }
+
+    .bh-table { font-size: 0.85rem; }
+
+    .bh-table th { padding: 8px 10px; font-size: 0.7rem; }
+    .cell { padding: 8px 10px; }
+
+    .cell-event { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Hide separate Time column, show inline */
+    .bh-table th:nth-child(3),
+    .cell-time { display: none; }
+    .time-inline { display: inline; }
+
+    /* Calendar adjustments */
+    .cal-cell { height: 60px; padding: 4px; }
+    .cal-event { font-size: 0.65rem; }
+    .cal-event-time { font-size: 0.6rem; }
+    .cal-day-num { font-size: 0.75rem; }
+  }
+
+  /* ── Mobile: small phone ── */
+
+  @media (max-width: 480px) {
+    body { padding: 0.75rem 0.5rem; }
+
+    .page-title { font-size: 1.3rem; }
+
+    /* Card layout */
+    .bh-table thead { display: none; }
+    .bh-table tbody tr {
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      padding: 10px 12px;
+    }
+    .bh-table tbody tr:hover .cell { background: none; }
+
+    .cell {
+      display: block;
+      border-bottom: none;
+      padding: 3px 0;
+    }
+    .cell::before {
+      content: attr(data-label);
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-right: 8px;
+      min-width: 70px;
+    }
+    .cell-event {
+      max-width: none;
+      white-space: normal;
+      font-size: 0.95rem;
+      padding-bottom: 4px;
+    }
+    .cell-event::before { display: none; }
+
+    /* Keep Time hidden in card view (shown inline with date) */
+    .cell-time { display: none; }
+    .time-inline { display: inline; }
+
+    /* Calendar small phone */
+    .cal-cell { height: 45px; padding: 2px; }
+    .cal-event { font-size: 0.6rem; padding: 2px 3px; }
+    .cal-event-time { display: none; }
+    .cal-dayname { font-size: 0.65rem; padding: 4px 2px; }
+    .cal-month-title { font-size: 1rem; }
+  }
+
+  /* ── Footer ── */
+
+  .footer-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Password modal ── */
+
+  .pw-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .pw-overlay.active { display: flex; }
+
+  .pw-modal {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.8rem;
+    width: 340px;
+    max-width: 90vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  }
+
+  .pw-modal h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+
+  .pw-modal .pw-event-name {
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    margin-bottom: 1rem;
+  }
+
+  .pw-modal input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .pw-modal input:focus { border-color: var(--cap-ok); }
+  .pw-modal input.pw-error { border-color: var(--cap-full); }
+
+  .pw-modal .pw-err-msg {
+    font-size: 0.8rem;
+    color: var(--cap-full);
+    margin-top: 0.4rem;
+    min-height: 1.2em;
+  }
+
+  .pw-modal .pw-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 1rem;
+    justify-content: flex-end;
+  }
+
+  .pw-modal button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-header);
+    color: var(--text);
+    transition: background 0.15s;
+  }
+  .pw-modal button:hover { background: var(--hover); }
+
+  .pw-modal .pw-submit {
+    background: var(--cap-ok);
+    color: #fff;
+    border-color: var(--cap-ok);
+  }
+  .pw-modal .pw-submit:hover { opacity: 0.9; background: var(--cap-ok); }
+</style>
+</head>
+<body>
+
+<div class="page-title">Birdhaus Upcoming Events</div>
+<div class="page-sub">24 events in the next 2 months</div>
+
+<table class="bh-table">
+<thead><tr>
+  <th>Event</th>
+  <th>Date</th>
+  <th>Time</th>
+  <th>Tickets Sold</th>
+  <th>Capacity</th>
+</tr></thead>
+<tbody>
+<tr data-guests-global="1X/XbIn7b2nJ4mHzWzl+Tv6S/Vc58wnPo2EoRDLT/ptnIkdtUWEfyEk9rgWi3XkU0lqMki8deshT2sG8rqAJ6dShcTxEfr3rt3QUjLe/5EF9W7zIC9eGHBF+nHHEiAoL3mSrX3dvk1fjTkzpMimtjejAxQ81CoCGdZAH39hQW2n6Z/c3MEPPAX3XQH9nfXWnevrB8EKYgB3e/gYGTH4EGIDtAUgMXRZs/659AixuVEPm8ePfX81/YKe9wErURFJcU69BxYQ0AzYNPDfd" data-event-name="Stemless TKs">
+<td class="cell cell-event" data-label="Event">Stemless TKs<span class="event-links"><a href="https://www.birdhausto.com/events/stemless-tks" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/stemless-tks');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-04-12<span class="time-inline"> &middot; 12:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">12:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 3</td>
+<td class="cell cap-ok" data-label="Capacity">3 / 24</td>
+</tr><tr data-guests-global="tVQpJpclMzE37s/YDV2+qXiAbRgAjB7S926sQ9ZUp0zTwPmnL7iK7hozmaGbDFBRkvnB8BZvCM5Hsja0GoHEwYVfd2GOCFTrMjDYcyVGGbzQ0hDCxrAr55hGtM9jK4+C1t1nn2oF" data-event-name="Hogties">
+<td class="cell cell-event" data-label="Event">Hogties<span class="event-links"><a href="https://www.birdhausto.com/events/hogties" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/hogties');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-04-12<span class="time-inline"> &middot; 14:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">14:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 1</td>
+<td class="cell cap-ok" data-label="Capacity">1 / 24</td>
+</tr><tr data-guests-global="jqLqNhhZWl1nekQauXCNKzXFod+k+i2SHFNURwqEC/Hq5z/DYKAT5EqbJ+/MN1RQFwMls6m9IKchl3slZDObe/X+yOu65Pi4p/hekAby3SoQU8l5yibZsqHd+JZakz9LsNPjJ0q8VdwRI/M90D9IfGCIrnnR8L/o7l5RcsASl0tlpTD+ZSqDCxXVexBDgxbAlp3F" data-event-name="Tinker Tuesday ">
+<td class="cell cell-event" data-label="Event">Tinker Tuesday <span class="event-links"><a href="https://www.birdhausto.com/events/tinker-tuesday-2026-04-14-19-00-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tinker-tuesday-2026-04-14-19-00-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Tuesday, 2026-04-14<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Tinker Pass: 2</td>
+<td class="cell cap-unlimited" data-label="Capacity">Unlimited</td>
+</tr><tr data-guests-global="6/gmsZSpYuDXhqOyMDU4etbY2vLYGL/PaCglf+1vm1AO+AWXHXhgzgzy+N37OAkd/i3G81wWuKFfJcfrQ9y210WDCY5lAUvl8ou5W1EFq8ZOaJTCx3vvBrcTsrmpmXVcKi0KYqXCLP3UEyyvT2cGe6vBmEQWwKyUhTd6uw0Z/JMVcef0L4BnzJ8CdSs/enO6TNwh5+6hUVh270Oucctrr8/WrWwoP+Z78XX/KizBuvBFf3vxzkVK63W+PLNowzvA0OU+ZkQ15uk1uIg3r3wvkJswPDvviPkhx6uzekaFt5ezwWwQ7ojfn2/9dJtblhlFjWHe2O6ZrEzI+cucKxG0mAdXZJG1JMiRBPN5FJwZyjpn96O/kl7X1a2DWIUwQlJs/UUKQH2e5RK3hS4PuEJFWmvcgQZZSdeE3FuBppwpJcF57Air4l/j2+RAjs110qU+629ZhZ1Gz7SLn+dIMBpYFXBmX2+ct33QXNBB0RekMbaUcOK3IVtjA4JoSkCVoqUTBp2jzTkwytQnSZdgrGOPPR92UyT2PMHhrKjVe+KaRaLuZeBvQMOcJQSRP27mWqoA/DJumNNR+B/D4+cI17i/xH1+/u7Ib+iig402xKxSZawoy+LGokGykTxLEaUu1LC6fw+FTHPgHiz0iW/gTLWUnMwORag7tw6wgUX3EYVWbIrH1hzS5+QIH0ucOn0=" data-event-name="SafeWord Play">
+<td class="cell cell-event" data-label="Event">SafeWord Play<span class="event-links"><a href="https://www.birdhausto.com/events/safeword-play-3" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/safeword-play-3');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Thursday, 2026-04-16<span class="time-inline"> &middot; 18:45:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">18:45:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">General Admission: 9</td>
+<td class="cell cap-ok" data-label="Capacity">9 / 40</td>
+</tr><tr data-guests-global="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" data-event-name="SWEAT">
+<td class="cell cell-event" data-label="Event">SWEAT<span class="event-links"><a href="https://www.birdhausto.com/events/sweat-4" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/sweat-4');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Saturday, 2026-04-18<span class="time-inline"> &middot; 21:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">21:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Early bird , General admission (47 total)</td>
+<td class="cell cap-ok" data-label="Capacity">Early bird : 15, General admission: 75</td>
+</tr><tr data-guests-global="kHajaCGDV0zEnqwQP1qVnjFhqMxDV6uVxvTGXePZPPOAVxrQWn1zfE3SEKMSQHatWssrwZI1E5PnyQkryDBg/UqD8A+3tuIkVTH88D9EGjAd0A6gfm7d+iLyhfzgy5yfG6KLQqDB" data-event-name="Self Tied Partials">
+<td class="cell cell-event" data-label="Event">Self Tied Partials<span class="event-links"><a href="https://www.birdhausto.com/events/self-tied-partials-2" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/self-tied-partials-2');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-04-19<span class="time-inline"> &middot; 12:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">12:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 1</td>
+<td class="cell cap-ok" data-label="Capacity">1 / 24</td>
+</tr><tr data-guests-global="HVLwqHG2H7LtHTnJM+YjLnvUYVO40UFPzXzdWIJdPLceZiZP9Bh1xLeEtOPEkFeDSRsd85D21f2aJJJe0LNLYJ6K8d3+zeynhQaFWBPRo6COwTy/XqFffgA7x8qqTfHXMoAFgNOdx1+E2K2X7pUEjeVYYM0k9ECZSnZbu+MlGRP0OQZvsUNuyYketNBRGTSqH9vM3Syik4FYQCQ5jOfLY/ohtEQcPLUaGulZflsz6i4uHT8i2XdlJOQ25LnftImoRKTfVaF0mjmB2JA1N3uQC7B/oI7IaMkS8+MgG21QLBBPVxSrWDqhnPuhz1yomKTKKKUBs4qr0MdT2zdLN01VFp/gDot1o1n5rU5HFf8CvkS1fl3HRPQMihCPOA8YPOfyYy5ftnbXMc7UPx1dkCKfbEOzp+XDr5bgkeUqSsPiE4LZOXwm+Sy+9FOGHmd3B3YnTej8E2d+sr1T/oIXbRfuQHKoUjdd5vdDzenD011TkEo5rQyykjCgVt1FEb/DauCocEhapevX0tKMzqc7py0iE75mtFlS" data-event-name="Your First Self Tie">
+<td class="cell cell-event" data-label="Event">Your First Self Tie<span class="event-links"><a href="https://www.birdhausto.com/events/your-first-self-tie-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/your-first-self-tie-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-04-19<span class="time-inline"> &middot; 14:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">14:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 7</td>
+<td class="cell cap-ok" data-label="Capacity">7 / 24</td>
+</tr><tr data-guests-global="jxSskpo0D3ONwOrzv/eoG88rdCBzsnBWjZ/x6/NkAkD5/ETAO6evB2DRvF9mUPRVWl0l+K2CLyYneIIDpDnSW8bf8f+JERIo1HcWnNoVPFp4J2NAqhMsZMijK0HJ+g==" data-event-name="Tinker Tuesday ">
+<td class="cell cell-event" data-label="Event">Tinker Tuesday <span class="event-links"><a href="https://www.birdhausto.com/events/tinker-tuesday-2026-04-21-19-00-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tinker-tuesday-2026-04-21-19-00-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Tuesday, 2026-04-21<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Tinker Pass: 1</td>
+<td class="cell cap-unlimited" data-label="Capacity">Unlimited</td>
+</tr><tr data-guests-global="dr7bDED98+ZAztrTSynih9ld3BKMlcrDXxX8a95Dl+LS1hrxqoSpYA8s0lpYgqtvXSRjRMySSUEcYTrJQmwOb+r0E6E2iT9bmjI1/lOPSLNIV1GGbwWY79VlBxfT+NSq3zLtdXgR" data-event-name="Beginner Body Mechanics">
+<td class="cell cell-event" data-label="Event">Beginner Body Mechanics<span class="event-links"><a href="https://www.birdhausto.com/events/beginner-body-mechanics" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/beginner-body-mechanics');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-04-26<span class="time-inline"> &middot; 14:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">14:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 1</td>
+<td class="cell cap-ok" data-label="Capacity">1 / 24</td>
+</tr><tr data-guests-global="pfotIp5N3OABBO94HWmE1Bk/ESpOL5DggAiSApkHp3gmKicZ/UWDFIEvuRy8vA==" data-event-name="Efficient Rope">
+<td class="cell cell-event" data-label="Event">Efficient Rope<span class="event-links"><a href="https://www.birdhausto.com/events/efficient-rope" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/efficient-rope');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-04-26<span class="time-inline"> &middot; 12:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">12:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr><tr data-guests-global="YDT7dZo4GwP+ZSS8S58fF/S23bF0CobK9JZwQSTiLg7WzFIHAVVtIA9spllR6jiJ6mpt1+SWH5c/s8x/6KabrlL7TGwlrdE6Z6yFfITApu/uk3iRD/094rAd+5532Q==" data-event-name="Tinker Tuesday ">
+<td class="cell cell-event" data-label="Event">Tinker Tuesday <span class="event-links"><a href="https://www.birdhausto.com/events/tinker-tuesday-2026-04-28-19-00-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tinker-tuesday-2026-04-28-19-00-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Tuesday, 2026-04-28<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Tinker Pass: 1</td>
+<td class="cell cap-unlimited" data-label="Capacity">Unlimited</td>
+</tr><tr data-guests-global="RjyAfbnf2Knp2/9MO/MmTU6Wpk2d+SuCejAcjwIIAZ+dWqs3Keyl4lsua2l0ypFMijqj7u8yoMmiKd3/Qtrf3XEKrn7ZV4gsT54+XGjFjXmxoDUCsTBGuKhGi1KGWZckEM9dssSIUCXebcFzc6s2qEdtw6pUlfhICKL9Y2lCCloDEUgAeplJdPQsbSijn1mlX4MqGz89naPoyQUdihAExvUKo98cWX6qEgxgO579pR0Cie0a8eoaYk6hO6ec2jAX0+qoSzgxBG/5AdzpXQVrfygX6jd4wcKxCfJvT7gYQsE+aP4j1mBevoFJ+C5TBvyIEjl8L/YZSflaX+vyY0imZA==" data-event-name="Smutty Movie Night- Pure Degenerate Trash!">
+<td class="cell cell-event" data-label="Event">Smutty Movie Night- Pure Degenerate Trash!<span class="event-links"><a href="https://www.birdhausto.com/events/smutty-movie-night-pure-degenerate-trash-2" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/smutty-movie-night-pure-degenerate-trash-2');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Thursday, 2026-04-30<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">General admission : 4</td>
+<td class="cell cap-ok" data-label="Capacity">4 / 60</td>
+</tr><tr data-guests-global="zSx0GWgAFrdW1o9kUBT/wImrVI24jac2uO4U9Z2mrwYNpYxOlLgtssesswJZgw==" data-event-name="Tenshi in the Air">
+<td class="cell cell-event" data-label="Event">Tenshi in the Air<span class="event-links"><a href="https://www.birdhausto.com/events/tenshi-in-the-air" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tenshi-in-the-air');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-05-03<span class="time-inline"> &middot; 14:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">14:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr><tr data-guests-global="BjiXbVyySxMTxg0dxq3jsb+cYiQkqw05eEgGrD4izJiGEsPjQ+aTGShR0VJqLw==" data-event-name="Tenshi">
+<td class="cell cell-event" data-label="Event">Tenshi<span class="event-links"><a href="https://www.birdhausto.com/events/tenshi" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tenshi');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-05-03<span class="time-inline"> &middot; 12:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">12:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr><tr data-guests-global="sO5/GNjEKFmQ5s/MuQwOVgh/LCSdDlFEiSYcwFLM6nePTm/RS0d07tBWwLZl9g==" data-event-name="Tinker Tuesday ">
+<td class="cell cell-event" data-label="Event">Tinker Tuesday <span class="event-links"><a href="https://www.birdhausto.com/events/tinker-tuesday-2026-05-05-19-00-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tinker-tuesday-2026-05-05-19-00-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Tuesday, 2026-05-05<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Tinker Pass: 0</td>
+<td class="cell cap-unlimited" data-label="Capacity">Unlimited</td>
+</tr><tr data-guests-global="otNAgY4LqbbfS/CE3n2QC4cusBU1cXP1xqoQX2u3qiXitpN0nweH244o5z6QWQ==" data-event-name="Tinker Tuesday ">
+<td class="cell cell-event" data-label="Event">Tinker Tuesday <span class="event-links"><a href="https://www.birdhausto.com/events/tinker-tuesday-2026-05-12-19-00-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tinker-tuesday-2026-05-12-19-00-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Tuesday, 2026-05-12<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Tinker Pass: 0</td>
+<td class="cell cap-unlimited" data-label="Capacity">Unlimited</td>
+</tr><tr data-guests-global="RErdoDIwCzVXhjin6yqcN6PKoGpSHwd4ICoEwFuK8M76zp6n52brw0FgNMWCGA==" data-event-name="Rope for Photography">
+<td class="cell cell-event" data-label="Event">Rope for Photography<span class="event-links"><a href="https://www.birdhausto.com/events/rope-for-photography" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/rope-for-photography');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-05-17<span class="time-inline"> &middot; 14:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">14:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr><tr data-guests-global="RI0jFMD/95ISRLdASbAZh5M7biZhBqVjCLLqckRvOTAmrZd4U2GkT0/YYy8rR2UTL4Ri+a5GSReOMaATgBYuo4DSwlM+iWHkcEUMEJVqALarm+yMjsmXkxXgj1P6pVUokEcIuByj2amQyfs5Q0ZJEF9s+xeNNL4HTgIqeDau0Dw+PM4omNAXoTH69kYpCFeb7z0=" data-event-name="Connective Rope">
+<td class="cell cell-event" data-label="Event">Connective Rope<span class="event-links"><a href="https://www.birdhausto.com/events/connective-rope-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/connective-rope-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-05-17<span class="time-inline"> &middot; 12:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">12:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 2</td>
+<td class="cell cap-ok" data-label="Capacity">2 / 24</td>
+</tr><tr data-guests-global="dBbGzXy8+ESx3Y1TxoW6VApzCLabAIYOFfE78TsHIvpAZNLeKD+WCQS+T+Ck/A==" data-event-name="Tinker Tuesday ">
+<td class="cell cell-event" data-label="Event">Tinker Tuesday <span class="event-links"><a href="https://www.birdhausto.com/events/tinker-tuesday-2026-05-19-19-00-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tinker-tuesday-2026-05-19-19-00-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Tuesday, 2026-05-19<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Tinker Pass: 0</td>
+<td class="cell cap-unlimited" data-label="Capacity">Unlimited</td>
+</tr><tr data-guests-global="db1mN7kCUiGNxH7Zdv1V7uJvHkzVYtDS9zfx7SaLbT65c4/zGkpxGYByYx0wVQ==" data-event-name="Futos and Frictions">
+<td class="cell cell-event" data-label="Event">Futos and Frictions<span class="event-links"><a href="https://www.birdhausto.com/events/futos-and-frictions-2" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/futos-and-frictions-2');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-05-24<span class="time-inline"> &middot; 12:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">12:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr><tr data-guests-global="Odlho1po0nvcFa86LgoVTuq07xrJBerDDbk/rubw7XovkqlJ3zYcFmifJwMYow==" data-event-name="Taking to the Air">
+<td class="cell cell-event" data-label="Event">Taking to the Air<span class="event-links"><a href="https://www.birdhausto.com/events/taking-to-the-air-2" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/taking-to-the-air-2');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-05-24<span class="time-inline"> &middot; 14:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">14:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr><tr data-guests-global="sPGROkgt/BVG9R3AIEYOVYg5MZUBYt+MNN+OF5Jqr0RTWUCrDPZVWCC/YydMsA==" data-event-name="Tinker Tuesday ">
+<td class="cell cell-event" data-label="Event">Tinker Tuesday <span class="event-links"><a href="https://www.birdhausto.com/events/tinker-tuesday-2026-05-26-19-00-1" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/tinker-tuesday-2026-05-26-19-00-1');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Tuesday, 2026-05-26<span class="time-inline"> &middot; 19:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">19:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Tinker Pass: 0</td>
+<td class="cell cap-unlimited" data-label="Capacity">Unlimited</td>
+</tr><tr data-guests-global="vgMriKnncRdj5XHKeY7LQlBuM71puGJn3fyY8GQTkca6eTCv6vx1za5DqnwbVw==" data-event-name="Rope for Rough Body Play and Sadism">
+<td class="cell cell-event" data-label="Event">Rope for Rough Body Play and Sadism<span class="event-links"><a href="https://www.birdhausto.com/events/rope-for-rough-body-play-and-sadism" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/rope-for-rough-body-play-and-sadism');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-06-07<span class="time-inline"> &middot; 12:00:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">12:00:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr><tr data-guests-global="tyvy6FiRjGGsTiSQ+VGSlng9Hroq8nRnSaovlSDEZePkpP6/lFGUW0f2Jx4nSA==" data-event-name="Improvised Suspensions">
+<td class="cell cell-event" data-label="Event">Improvised Suspensions<span class="event-links"><a href="https://www.birdhausto.com/events/improvised-suspensions" target="_blank" rel="noopener" class="event-icon" title="Open event page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button class="event-icon" onclick="navigator.clipboard.writeText('https://www.birdhausto.com/events/improvised-suspensions');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" title="Copy link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="event-icon" onclick="promptGuestDownload(this)" title="Download guest list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></span></td>
+<td class="cell cell-meta" data-label="Date">Sunday, 2026-06-07<span class="time-inline"> &middot; 14:30:00</span></td>
+<td class="cell cell-meta cell-time" data-label="Time">14:30:00</td>
+<td class="cell cell-tickets" data-label="Tickets Sold">Single Ticket: 0</td>
+<td class="cell cap-ok" data-label="Capacity">0 / 24</td>
+</tr>
+</tbody>
+</table>
+
+<div class="cal-section">
+  <div class="cal-section-title">Calendar</div>
+  <div class="cal-month"><h3 class="cal-month-title">April 2026</h3><table class="cal-grid"><thead><tr><th class="cal-dayname">Mon</th><th class="cal-dayname">Tue</th><th class="cal-dayname">Wed</th><th class="cal-dayname">Thu</th><th class="cal-dayname">Fri</th><th class="cal-dayname">Sat</th><th class="cal-dayname">Sun</th></tr></thead><tbody><tr><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell  "><div class="cal-day-num">1</div></td><td class="cal-cell  "><div class="cal-day-num">2</div></td><td class="cal-cell  "><div class="cal-day-num">3</div></td><td class="cal-cell  "><div class="cal-day-num">4</div></td><td class="cal-cell  "><div class="cal-day-num">5</div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">6</div></td><td class="cal-cell  "><div class="cal-day-num">7</div></td><td class="cal-cell  "><div class="cal-day-num">8</div></td><td class="cal-cell  "><div class="cal-day-num">9</div></td><td class="cal-cell cal-today "><div class="cal-day-num">10</div></td><td class="cal-cell  "><div class="cal-day-num">11</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">12</div><div class="cal-event">Stemless TKs<br><span class="cal-event-time">12:00:00</span></div><div class="cal-event">Hogties<br><span class="cal-event-time">14:30:00</span></div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">13</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">14</div><div class="cal-event">Tinker Tuesday <br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">15</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">16</div><div class="cal-event">SafeWord Play<br><span class="cal-event-time">18:45:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">17</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">18</div><div class="cal-event">SWEAT<br><span class="cal-event-time">21:30:00</span></div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">19</div><div class="cal-event">Self Tied Partials<br><span class="cal-event-time">12:00:00</span></div><div class="cal-event">Your First Self Tie<br><span class="cal-event-time">14:30:00</span></div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">20</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">21</div><div class="cal-event">Tinker Tuesday <br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">22</div></td><td class="cal-cell  "><div class="cal-day-num">23</div></td><td class="cal-cell  "><div class="cal-day-num">24</div></td><td class="cal-cell  "><div class="cal-day-num">25</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">26</div><div class="cal-event">Beginner Body Mechanic...<br><span class="cal-event-time">14:30:00</span></div><div class="cal-event">Efficient Rope<br><span class="cal-event-time">12:00:00</span></div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">27</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">28</div><div class="cal-event">Tinker Tuesday <br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">29</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">30</div><div class="cal-event">Smutty Movie Night- Pu...<br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td></tr></tbody></table></div><div class="cal-month"><h3 class="cal-month-title">May 2026</h3><table class="cal-grid"><thead><tr><th class="cal-dayname">Mon</th><th class="cal-dayname">Tue</th><th class="cal-dayname">Wed</th><th class="cal-dayname">Thu</th><th class="cal-dayname">Fri</th><th class="cal-dayname">Sat</th><th class="cal-dayname">Sun</th></tr></thead><tbody><tr><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell  "><div class="cal-day-num">1</div></td><td class="cal-cell  "><div class="cal-day-num">2</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">3</div><div class="cal-event">Tenshi in the Air<br><span class="cal-event-time">14:30:00</span></div><div class="cal-event">Tenshi<br><span class="cal-event-time">12:00:00</span></div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">4</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">5</div><div class="cal-event">Tinker Tuesday <br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">6</div></td><td class="cal-cell  "><div class="cal-day-num">7</div></td><td class="cal-cell  "><div class="cal-day-num">8</div></td><td class="cal-cell  "><div class="cal-day-num">9</div></td><td class="cal-cell  "><div class="cal-day-num">10</div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">11</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">12</div><div class="cal-event">Tinker Tuesday <br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">13</div></td><td class="cal-cell  "><div class="cal-day-num">14</div></td><td class="cal-cell  "><div class="cal-day-num">15</div></td><td class="cal-cell  "><div class="cal-day-num">16</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">17</div><div class="cal-event">Rope for Photography<br><span class="cal-event-time">14:30:00</span></div><div class="cal-event">Connective Rope<br><span class="cal-event-time">12:00:00</span></div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">18</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">19</div><div class="cal-event">Tinker Tuesday <br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">20</div></td><td class="cal-cell  "><div class="cal-day-num">21</div></td><td class="cal-cell  "><div class="cal-day-num">22</div></td><td class="cal-cell  "><div class="cal-day-num">23</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">24</div><div class="cal-event">Futos and Frictions<br><span class="cal-event-time">12:00:00</span></div><div class="cal-event">Taking to the Air<br><span class="cal-event-time">14:30:00</span></div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">25</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">26</div><div class="cal-event">Tinker Tuesday <br><span class="cal-event-time">19:00:00</span></div></td><td class="cal-cell  "><div class="cal-day-num">27</div></td><td class="cal-cell  "><div class="cal-day-num">28</div></td><td class="cal-cell  "><div class="cal-day-num">29</div></td><td class="cal-cell  "><div class="cal-day-num">30</div></td><td class="cal-cell  "><div class="cal-day-num">31</div></td></tr></tbody></table></div><div class="cal-month"><h3 class="cal-month-title">June 2026</h3><table class="cal-grid"><thead><tr><th class="cal-dayname">Mon</th><th class="cal-dayname">Tue</th><th class="cal-dayname">Wed</th><th class="cal-dayname">Thu</th><th class="cal-dayname">Fri</th><th class="cal-dayname">Sat</th><th class="cal-dayname">Sun</th></tr></thead><tbody><tr><td class="cal-cell  "><div class="cal-day-num">1</div></td><td class="cal-cell  "><div class="cal-day-num">2</div></td><td class="cal-cell  "><div class="cal-day-num">3</div></td><td class="cal-cell  "><div class="cal-day-num">4</div></td><td class="cal-cell  "><div class="cal-day-num">5</div></td><td class="cal-cell  "><div class="cal-day-num">6</div></td><td class="cal-cell  cal-has-event"><div class="cal-day-num">7</div><div class="cal-event">Rope for Rough Body Pl...<br><span class="cal-event-time">12:00:00</span></div><div class="cal-event">Improvised Suspensions<br><span class="cal-event-time">14:30:00</span></div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">8</div></td><td class="cal-cell  "><div class="cal-day-num">9</div></td><td class="cal-cell  "><div class="cal-day-num">10</div></td><td class="cal-cell  "><div class="cal-day-num">11</div></td><td class="cal-cell  "><div class="cal-day-num">12</div></td><td class="cal-cell  "><div class="cal-day-num">13</div></td><td class="cal-cell  "><div class="cal-day-num">14</div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">15</div></td><td class="cal-cell  "><div class="cal-day-num">16</div></td><td class="cal-cell  "><div class="cal-day-num">17</div></td><td class="cal-cell  "><div class="cal-day-num">18</div></td><td class="cal-cell  "><div class="cal-day-num">19</div></td><td class="cal-cell  "><div class="cal-day-num">20</div></td><td class="cal-cell  "><div class="cal-day-num">21</div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">22</div></td><td class="cal-cell  "><div class="cal-day-num">23</div></td><td class="cal-cell  "><div class="cal-day-num">24</div></td><td class="cal-cell  "><div class="cal-day-num">25</div></td><td class="cal-cell  "><div class="cal-day-num">26</div></td><td class="cal-cell  "><div class="cal-day-num">27</div></td><td class="cal-cell  "><div class="cal-day-num">28</div></td></tr><tr><td class="cal-cell  "><div class="cal-day-num">29</div></td><td class="cal-cell  "><div class="cal-day-num">30</div></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td><td class="cal-cell cal-empty"></td></tr></tbody></table></div>
+</div>
+
+<p class="footer-text">Data from 2026-04-10T01:34:23.664109-04:00</p>
+
+<div class="pw-overlay" id="pwOverlay">
+  <div class="pw-modal">
+    <h3>Download Guest List</h3>
+    <div class="pw-event-name" id="pwEventName"></div>
+    <form id="pwForm" onsubmit="return handlePwSubmit(event)">
+      <input type="password" id="pwInput" placeholder="Enter password" autocomplete="off" />
+      <div class="pw-err-msg" id="pwErr"></div>
+      <div class="pw-actions">
+        <button type="button" onclick="closePwModal()">Cancel</button>
+        <button type="submit" class="pw-submit">Download</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  var activeRow=null;
+
+  function showModal(){
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwInput').classList.remove('pw-error');
+    document.getElementById('pwErr').textContent='';
+    document.getElementById('pwOverlay').classList.add('active');
+    setTimeout(function(){document.getElementById('pwInput').focus();},50);
+  }
+
+  window.promptGuestDownload=function(btn){
+    activeRow=btn.closest('tr');
+    var name=activeRow.getAttribute('data-event-name')||'Event';
+    document.getElementById('pwEventName').textContent=name;
+    var saved=sessionStorage.getItem('_gl_pw');
+    if(saved){tryDecryptAndDownload(saved,true);return;}
+    showModal();
+  };
+
+  window.closePwModal=function(){
+    document.getElementById('pwOverlay').classList.remove('active');
+    activeRow=null;
+  };
+
+  window.handlePwSubmit=function(e){
+    e.preventDefault();
+    var pw=document.getElementById('pwInput').value;
+    if(!pw)return false;
+    tryDecryptAndDownload(pw,false);
+    return false;
+  };
+
+  async function deriveKey(password,salt){
+    var enc=new TextEncoder();
+    var km=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']);
+    return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:100000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
+  }
+
+  async function decryptBlob(b64,password){
+    var raw=Uint8Array.from(atob(b64),function(c){return c.charCodeAt(0);});
+    var salt=raw.slice(0,16);
+    var nonce=raw.slice(16,28);
+    var ct=raw.slice(28);
+    var key=await deriveKey(password,salt);
+    var dec=await crypto.subtle.decrypt({name:'AES-GCM',iv:nonce},key,ct);
+    return new TextDecoder().decode(dec);
+  }
+
+  async function tryDecryptAndDownload(pw,fromCache){
+    if(!activeRow)return;
+    var globalBlob=activeRow.getAttribute('data-guests-global');
+    var eventBlob=activeRow.getAttribute('data-guests-event');
+    var eventName=activeRow.getAttribute('data-event-name')||'guests';
+    var decrypted=null;
+    if(globalBlob){try{decrypted=await decryptBlob(globalBlob,pw);}catch(_){}}
+    if(!decrypted&&eventBlob){try{decrypted=await decryptBlob(eventBlob,pw);}catch(_){}}
+    if(decrypted){
+      sessionStorage.setItem('_gl_pw',pw);
+      downloadCsv(decrypted,eventName);
+      closePwModal();
+    }else if(fromCache){
+      sessionStorage.removeItem('_gl_pw');
+      showModal();
+    }else{
+      document.getElementById('pwInput').classList.add('pw-error');
+      document.getElementById('pwErr').textContent='Incorrect password';
+    }
+  }
+
+  function downloadCsv(jsonStr,eventName){
+    var guests=JSON.parse(jsonStr);
+    var lines=['Name,Ticket Type'];
+    guests.forEach(function(g){
+      var n=(g.name||'').replace(/"/g,'""');
+      var t=(g.ticket_type||'').replace(/"/g,'""');
+      lines.push('"'+n+'","'+t+'"');
+    });
+    var csv=lines.join('\r\n');
+    var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=eventName.replace(/[^a-zA-Z0-9 _-]/g,'').replace(/ +/g,'_')+'_guests.csv';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+  }
+
+  document.getElementById('pwOverlay').addEventListener('click',function(e){
+    if(e.target===this)closePwModal();
+  });
+})();
+</script>
+
+</body>
+</html>
