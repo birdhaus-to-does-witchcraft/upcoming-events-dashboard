@@ -5,3 +5,5 @@ venv/
 *.log
 .claude/
 ./docs/index.html
+data/events.json
+docs/index.html
